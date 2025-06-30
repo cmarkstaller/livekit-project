@@ -1,0 +1,15 @@
+{
+  "name": "livekit-backend-test",
+  "version": "1.0.0",
+  "description": "Test script for LiveKit backend functionality",
+  "main": "test-livekit.js",
+  "scripts": {
+    "test": "node test-livekit.js"
+  },
+  "dependencies": {
+    "livekit-server-sdk": "^1.2.0"
+  },
+  "keywords": ["livekit", "webrtc", "testing"],
+  "author": "",
+  "license": "MIT"
+} 

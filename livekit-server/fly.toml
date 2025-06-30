@@ -1,0 +1,54 @@
+# fly.toml app configuration file generated for chris-spring-breeze-6913 on 2025-06-27T13:43:10-07:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'chris-spring-breeze-6913'
+primary_region = 'den'
+
+[build]
+  image = 'livekit/livekit-server:latest'
+
+[env]
+  # LiveKit configuration
+  LIVEKIT_KEYS = "APIrCXwmt7s57ZW: QYkjeMONn2jjeNO1P7gQpewngLCJjH5i0fIlYbwUbWjB"
+  LIVEKIT_KEYS_FILE = ""
+  
+  # Redis configuration (optional, for distributed deployments)
+  # REDIS_ADDRESS = "your-redis-url"
+  
+  # Logging
+  LIVEKIT_LOG_LEVEL = "info"
+  
+  # WebRTC configuration
+  LIVEKIT_TCP_PORT = "7880"
+  LIVEKIT_UDP_PORT = "7882"
+  
+  # Room configuration
+  LIVEKIT_ROOM_AUTO_CREATE = "true"
+  LIVEKIT_ROOM_DEFAULT_MAX_PARTICIPANTS = "20"
+  LIVEKIT_ROOM_DEFAULT_EMPTY_TIMEOUT = "10m"
+  LIVEKIT_ROOM_DEFAULT_MAX_DURATION = "24h"
+
+[http_service]
+  internal_port = 7880
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ['app']
+  
+  [http_service.concurrency]
+    type = "connections"
+    hard_limit = 25
+    soft_limit = 20
+
+[[vm]]
+  memory = '1gb'
+  cpu_kind = 'shared'
+  cpus = 1
+
+# Optional: Add volume for recordings if needed
+# [[mounts]]
+#   source = "livekit_recordings"
+#   destination = "/recordings"
