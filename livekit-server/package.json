@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "livekit-client": "^2.14.0",
+    "livekit-server-sdk": "^2.13.1"
+  }
+}

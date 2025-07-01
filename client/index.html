@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LiveKit Video Conference</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app">
+        <!-- Header -->
+        <header class="header">
+            <h1>🎥 LiveKit Video Conference</h1>
+            <div class="connection-status" id="connectionStatus">
+                <span class="status-dot"></span>
+                <span class="status-text">Disconnected</span>
+            </div>
+        </header>
+
+        <!-- Join Form -->
+        <div class="join-form" id="joinForm">
+            <div class="form-container">
+                <h2>Join a Room</h2>
+                <div class="input-group">
+                    <label for="roomName">Room Name:</label>
+                    <input type="text" id="roomName" placeholder="Enter room name" value="test-room">
+                </div>
+                <div class="input-group">
+                    <label for="participantName">Your Name:</label>
+                    <input type="text" id="participantName" placeholder="Enter your name" value="user">
+                </div>
+                <div class="button-group">
+                    <button id="joinButton" class="btn btn-primary">Join Room</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Video Conference -->
+        <div class="conference" id="conference" style="display: none;">
+            <div class="video-grid" id="videoGrid">
+                <!-- Video elements will be added here dynamically -->
+            </div>
+            
+            <!-- Controls -->
+            <div class="controls">
+                <button id="toggleVideo" class="control-btn">
+                    <span class="icon">📹</span>
+                    <span class="label">Video</span>
+                </button>
+                <button id="toggleAudio" class="control-btn">
+                    <span class="icon">🎤</span>
+                    <span class="label">Audio</span>
+                </button>
+                <button id="leaveRoom" class="control-btn control-btn-danger">
+                    <span class="icon">📞</span>
+                    <span class="label">Leave</span>
+                </button>
+            </div>
+
+            <!-- Participants List -->
+            <div class="participants-panel" id="participantsPanel">
+                <h3>Participants</h3>
+                <div class="participants-list" id="participantsList">
+                    <!-- Participants will be listed here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading Overlay -->
+        <div class="loading-overlay" id="loadingOverlay" style="display: none;">
+            <div class="loading-spinner"></div>
+            <p>Connecting to room...</p>
+        </div>
+
+        <!-- Error Modal -->
+        <div class="error-modal" id="errorModal" style="display: none;">
+            <div class="error-content">
+                <h3>Error</h3>
+                <p id="errorMessage"></p>
+                <button id="closeError" class="btn btn-primary">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="main.js"></script>
+</body>
+</html> 

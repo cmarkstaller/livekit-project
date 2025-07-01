@@ -1,0 +1,21 @@
+{
+  "name": "livekit-client",
+  "version": "1.0.0",
+  "description": "LiveKit frontend client for video conferencing",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "start": "vite"
+  },
+  "dependencies": {
+    "livekit-client": "^2.14.0"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0"
+  },
+  "keywords": ["livekit", "webrtc", "video", "conferencing"],
+  "author": "",
+  "license": "MIT"
+} 

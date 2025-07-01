@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  livekit-server:
+    image: livekit/livekit-server:latest
+    container_name: livekit-server-local
+    ports:
+      - "7880:7880"  # HTTP/WebSocket port
+      - "7882:7882/udp"  # Media port for WebRTC
+    environment:
+      # LiveKit configuration
+      LIVEKIT_KEYS: "APIrCXwmt7s57ZW: QYkjeMONn2jjeNO1P7gQpewngLCJjH5i0fIlYbwUbWjB"
+      LIVEKIT_KEYS_FILE: ""
+      
+      # Logging
+      LIVEKIT_LOG_LEVEL: "info"
+      
+      # WebRTC configuration
+      LIVEKIT_TCP_PORT: "7880"
+      LIVEKIT_UDP_PORT: "7882"
+      
+      # Room configuration
+      LIVEKIT_ROOM_AUTO_CREATE: "true"
+      LIVEKIT_ROOM_DEFAULT_MAX_PARTICIPANTS: "20"
+      LIVEKIT_ROOM_DEFAULT_EMPTY_TIMEOUT: "10m"
+      LIVEKIT_ROOM_DEFAULT_MAX_DURATION: "24h"
+    restart: unless-stopped
+    networks:
+      - livekit-network
+
+networks:
+  livekit-network:
+    driver: bridge 
