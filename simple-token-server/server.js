@@ -5,13 +5,14 @@ const { AccessToken } = require('livekit-server-sdk');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Your LiveKit API credentials - replace with your actual values
+// LiveKit API credentials
 const API_KEY = process.env.LIVEKIT_API_KEY || 'APIrCXwmt7s57ZW';
 const API_SECRET = process.env.LIVEKIT_API_SECRET || 'QYkjeMONn2jjeNO1P7gQpewngLCJjH5i0fIlYbwUbWjB';
 
 // Configure CORS more explicitly
 app.use(cors({
-  origin: ['http://localhost:8080', 'http://127.0.0.1:8080', 'http://localhost:3000', 'http://127.0.0.1:3000'],
+  //origin: ['http://localhost:8080', 'http://127.0.0.1:8080', 'http://localhost:3000', 'http://127.0.0.1:3000'],
+  origin: true,
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
