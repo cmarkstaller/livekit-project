@@ -20,23 +20,29 @@
         <!-- Join Form -->
         <div class="join-form" id="joinForm">
             <div class="form-container">
-                <h2>Join a Room</h2>
+                <h2>Join a Stream</h2>
                 <div class="input-group">
-                    <label for="roomName">Room Name:</label>
-                    <input type="text" id="roomName" placeholder="Enter room name" value="test-room">
+                    <label for="roomName">Stream Name:</label>
+                    <input type="text" id="roomName" placeholder="Enter stream name" value="test-room">
                 </div>
                 <div class="input-group">
                     <label for="participantName">Your Name:</label>
                     <input type="text" id="participantName" placeholder="Enter your name" value="user">
                 </div>
                 <div class="button-group">
-                    <button id="joinButton" class="btn btn-primary">Join Room</button>
+                    <button id="joinCameraButton" class="btn btn-primary">Join as Camera</button>
+                    <button id="joinViewerButton" class="btn btn-secondary" style="margin-left: 1em;">Join as Viewer</button>
+                </div>
+                <!-- Available Streams List -->
+                <div id="availableRooms" class="available-rooms">
+                    <!-- Stream list will be populated here by JS -->
                 </div>
             </div>
         </div>
 
         <!-- Video Conference -->
         <div class="conference" id="conference" style="display: none;">
+            <div id="currentStreamName" class="current-stream-name"></div>
             <div class="video-grid" id="videoGrid">
                 <!-- Video elements will be added here dynamically -->
             </div>
@@ -58,12 +64,6 @@
             </div>
 
             <!-- Participants List -->
-            <div class="participants-panel" id="participantsPanel">
-                <h3>Participants</h3>
-                <div class="participants-list" id="participantsList">
-                    <!-- Participants will be listed here -->
-                </div>
-            </div>
         </div>
 
         <!-- Loading Overlay -->

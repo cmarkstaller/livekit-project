@@ -13,10 +13,12 @@ class LiveKitClient {
         this.isConnected = false;
         this.localVideoEnabled = true;
         this.localAudioEnabled = true;
+        this.role = 'camera'; // default
         
         this.initializeElements();
         this.setupEventListeners();
         this.setupRoomEventListeners();
+        this.fetchAndDisplayRooms(); // Fetch rooms on load
     }
 
     initializeElements() {
@@ -24,13 +26,13 @@ class LiveKitClient {
         this.joinForm = document.getElementById('joinForm');
         this.roomNameInput = document.getElementById('roomName');
         this.participantNameInput = document.getElementById('participantName');
-        this.joinButton = document.getElementById('joinButton');
+        this.joinCameraButton = document.getElementById('joinCameraButton');
+        this.joinViewerButton = document.getElementById('joinViewerButton');
         
         // Conference elements
         this.conference = document.getElementById('conference');
         this.videoGrid = document.getElementById('videoGrid');
-        this.participantsPanel = document.getElementById('participantsPanel');
-        this.participantsList = document.getElementById('participantsList');
+        // Removed: this.participantsPanel, this.participantsList
         
         // Control buttons
         this.toggleVideoBtn = document.getElementById('toggleVideo');
@@ -50,9 +52,10 @@ class LiveKitClient {
     }
 
     setupEventListeners() {
-        // Join form
-        this.joinButton.addEventListener('click', () => this.joinRoom());
-        
+        // Join as Camera
+        this.joinCameraButton.addEventListener('click', () => this.joinRoom('camera'));
+        // Join as Viewer
+        this.joinViewerButton.addEventListener('click', () => this.joinRoom('viewer'));
         // Control buttons
         this.toggleVideoBtn.addEventListener('click', () => this.toggleVideo());
         this.toggleAudioBtn.addEventListener('click', () => this.toggleAudio());
@@ -77,7 +80,7 @@ class LiveKitClient {
             this.isConnected = true;
             this.updateConnectionStatus(true);
             this.localParticipant = this.room.localParticipant;
-            this.updateParticipantsList();
+            // Removed: this.updateParticipantsList();
         });
 
         this.room.on(RoomEvent.Disconnected, () => {
@@ -91,14 +94,14 @@ class LiveKitClient {
         this.room.on(RoomEvent.ParticipantConnected, (participant) => {
             console.log('Participant connected:', participant.identity);
             this.participants.set(participant.sid, participant);
-            this.updateParticipantsList();
+            // Removed: this.updateParticipantsList();
         });
 
         this.room.on(RoomEvent.ParticipantDisconnected, (participant) => {
             console.log('Participant disconnected:', participant.identity);
             this.participants.delete(participant.sid);
             this.removeParticipantVideo(participant);
-            this.updateParticipantsList();
+            // Removed: this.updateParticipantsList();
         });
 
         // Track events
@@ -123,9 +126,10 @@ class LiveKitClient {
         });
     }
 
-    async joinRoom() {
+    async joinRoom(role) {
         const roomName = this.roomNameInput.value.trim();
         const participantName = this.participantNameInput.value.trim();
+        this.role = role;
 
         if (!roomName || !participantName) {
             this.showError('Please enter both room name and participant name');
@@ -133,33 +137,33 @@ class LiveKitClient {
         }
 
         this.showLoading(true);
-        this.joinButton.disabled = true;
+        this.joinCameraButton.disabled = true;
+        this.joinViewerButton.disabled = true;
 
         try {
             // Get token from token server
-            const token = await this.getToken(roomName, participantName);
-            
+            const token = await this.getToken(roomName, participantName, this.role);
             // Connect to LiveKit room
             await this.room.connect('ws://localhost:7880', token, {
                 autoSubscribe: true,
             });
-
-            // Publish local media
-            await this.publishLocalMedia();
-            
+            // Only publish local media if role is camera
+            if (this.role === 'camera') {
+                await this.publishLocalMedia();
+            }
             // Show conference interface
             this.showConference();
-            
         } catch (error) {
             console.error('Failed to join room:', error);
             this.showError(`Failed to join room: ${error.message}`);
         } finally {
             this.showLoading(false);
-            this.joinButton.disabled = false;
+            this.joinCameraButton.disabled = false;
+            this.joinViewerButton.disabled = false;
         }
     }
 
-    async getToken(roomName, participantName) {
+    async getToken(roomName, participantName, role) {
         const response = await fetch('http://localhost:3001/token', {
             method: 'POST',
             headers: {
@@ -167,14 +171,13 @@ class LiveKitClient {
             },
             body: JSON.stringify({
                 roomName: roomName,
-                participantName: participantName
+                participantName: participantName,
+                role: role
             })
         });
-
         if (!response.ok) {
             throw new Error(`Token server error: ${response.status}`);
         }
-
         const data = await response.json();
         return data.token;
     }
@@ -351,53 +354,27 @@ class LiveKitClient {
         }
     }
 
-    updateParticipantsList() {
-        this.participantsList.innerHTML = '';
-
-        // Add local participant
-        if (this.localParticipant) {
-            this.addParticipantToList(this.localParticipant, true);
-        }
-
-        // Add remote participants
-        this.participants.forEach(participant => {
-            this.addParticipantToList(participant, false);
-        });
-    }
-
-    addParticipantToList(participant, isLocal) {
-        const participantItem = document.createElement('div');
-        participantItem.className = `participant-item ${isLocal ? 'local' : ''}`;
-
-        const avatar = document.createElement('div');
-        avatar.className = 'participant-avatar';
-        avatar.textContent = participant.identity.charAt(0).toUpperCase();
-
-        const name = document.createElement('div');
-        name.className = 'participant-name';
-        name.textContent = isLocal ? `${participant.identity} (You)` : participant.identity;
-
-        const status = document.createElement('div');
-        status.className = 'participant-status';
-        status.textContent = isLocal ? 'Local' : 'Remote';
-
-        participantItem.appendChild(avatar);
-        participantItem.appendChild(name);
-        participantItem.appendChild(status);
-
-        this.participantsList.appendChild(participantItem);
-    }
+    // Removed: updateParticipantsList and addParticipantToList methods
 
     showJoinForm() {
         this.joinForm.style.display = 'flex';
         this.conference.style.display = 'none';
         this.videoGrid.innerHTML = '';
-        this.participantsList.innerHTML = '';
+        // Removed: this.participantsList.innerHTML = '';
+        // Clear stream name reference
+        const streamNameDiv = document.getElementById('currentStreamName');
+        if (streamNameDiv) streamNameDiv.textContent = '';
     }
 
     showConference() {
         this.joinForm.style.display = 'none';
         this.conference.style.display = 'flex';
+        // Show stream name reference
+        const streamNameDiv = document.getElementById('currentStreamName');
+        if (streamNameDiv) {
+            const streamName = this.roomNameInput ? this.roomNameInput.value.trim() : '';
+            streamNameDiv.textContent = streamName ? `Stream: ${streamName}` : '';
+        }
     }
 
     showLoading(show) {
@@ -411,6 +388,45 @@ class LiveKitClient {
 
     hideError() {
         this.errorModal.style.display = 'none';
+    }
+
+    // Add this method to LiveKitClient
+    async fetchAndDisplayRooms() {
+        const availableRoomsDiv = document.getElementById('availableRooms');
+        availableRoomsDiv.innerHTML = '<h3>Available Streams</h3><div>Loading...</div>';
+        try {
+            const response = await fetch('http://localhost:3001/rooms');
+            if (!response.ok) throw new Error('Failed to fetch streams');
+            const rooms = await response.json();
+            if (!rooms.length) {
+                availableRoomsDiv.innerHTML = '<h3>Available Streams</h3><div>No streams available</div>';
+                return;
+            }
+            availableRoomsDiv.innerHTML = '<h3>Available Streams</h3>';
+            rooms.forEach(room => {
+                const div = document.createElement('div');
+                div.className = 'room-list-item';
+                // Stream name
+                const nameSpan = document.createElement('span');
+                nameSpan.textContent = room.name;
+                div.appendChild(nameSpan);
+                // Viewer count
+                if (typeof room.viewerCount === 'number') {
+                    const viewerSpan = document.createElement('span');
+                    viewerSpan.className = 'viewer-count';
+                    viewerSpan.textContent = `${room.viewerCount} viewer${room.viewerCount === 1 ? '' : 's'}`;
+                    div.appendChild(viewerSpan);
+                }
+                div.title = 'Click to join this stream';
+                div.addEventListener('click', () => {
+                    this.roomNameInput.value = room.name;
+                    this.roomNameInput.focus();
+                });
+                availableRoomsDiv.appendChild(div);
+            });
+        } catch (err) {
+            availableRoomsDiv.innerHTML = '<h3>Available Streams</h3><div style="color:red">Failed to load streams</div>';
+        }
     }
 }
 

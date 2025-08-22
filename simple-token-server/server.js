@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const { AccessToken } = require('livekit-server-sdk');
+const { AccessToken, RoomServiceClient } = require('livekit-server-sdk');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -8,6 +8,10 @@ const PORT = process.env.PORT || 3001;
 // LiveKit API credentials
 const API_KEY = process.env.LIVEKIT_API_KEY || 'APIrCXwmt7s57ZW';
 const API_SECRET = process.env.LIVEKIT_API_SECRET || 'QYkjeMONn2jjeNO1P7gQpewngLCJjH5i0fIlYbwUbWjB';
+const LIVEKIT_URL = process.env.LIVEKIT_URL || 'ws://localhost:7880';
+
+// RoomServiceClient for room management
+const roomService = new RoomServiceClient(LIVEKIT_URL, API_KEY, API_SECRET);
 
 // Configure CORS more explicitly
 app.use(cors({
@@ -30,13 +34,17 @@ app.post('/token', async (req, res) => {
   });
   
   try {
-    const { roomName, participantName } = req.body;
+    const { roomName, participantName, role } = req.body;
 
     if (!roomName || !participantName) {
       return res.status(400).json({
         error: 'roomName and participantName are required'
       });
     }
+
+    // Determine publish permission based on role
+    // If role is 'viewer', do not allow publishing. Otherwise, allow.
+    const canPublish = role === 'viewer' ? false : true;
 
     // Create access token
     const at = new AccessToken(API_KEY, API_SECRET, {
@@ -48,7 +56,7 @@ app.post('/token', async (req, res) => {
     const grant = {
       room: roomName,
       roomJoin: true,
-      canPublish: true,    // You can make this conditional if you want to distinguish viewers
+      canPublish: canPublish,
       canSubscribe: true
     };
     at.addGrant(grant);
@@ -65,6 +73,32 @@ app.post('/token', async (req, res) => {
   } catch (error) {
     console.error('Error generating token:', error);
     res.status(500).json({ error: 'Failed to generate token' });
+  }
+});
+
+// List available rooms endpoint
+app.get('/rooms', async (req, res) => {
+  try {
+    const rooms = await roomService.listRooms();
+    // For each room, get the list of participants and count viewers
+    const roomsWithViewers = await Promise.all(rooms.map(async (room) => {
+      let viewerCount = 0;
+      try {
+        const participants = await roomService.listParticipants(room.name);
+        // Count participants with canPublish === false (viewers)
+        viewerCount = participants.filter(p => p.permission && p.permission.canPublish === false).length;
+      } catch (err) {
+        console.error(`Error listing participants for room ${room.name}:`, err);
+      }
+      return {
+        name: room.name,
+        viewerCount,
+      };
+    }));
+    res.json(roomsWithViewers);
+  } catch (error) {
+    console.error('Error listing rooms:', error);
+    res.status(500).json({ error: 'Failed to list rooms' });
   }
 });
 
