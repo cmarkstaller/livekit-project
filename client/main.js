@@ -510,21 +510,8 @@ class LiveKitClient {
         const availableRoomsDiv = document.getElementById('availableRooms');
         availableRoomsDiv.innerHTML = '<h3>Available Streams</h3><div>Loading...</div>';
         
-        console.log('🏠 Attempting to fetch available rooms...');
-        console.log('📍 Rooms endpoint URL:', `${CONFIG.tokenServerUrl}/rooms`);
-        
         try {
-            const response = await fetch(`${CONFIG.tokenServerUrl}/rooms`);
-            console.log('📡 Rooms response status:', response.status);
-            console.log('📡 Rooms response headers:', Object.fromEntries(response.headers.entries()));
-            
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error('❌ Failed to fetch streams:', errorText);
-                throw new Error('Failed to fetch streams');
-            }
-            
-            const rooms = await response.json();
+            const rooms = await this.getAvailableRooms();
             console.log('✅ Rooms fetched successfully:', rooms);
             
             if (!rooms.length) {
@@ -554,7 +541,42 @@ class LiveKitClient {
                 availableRoomsDiv.appendChild(div);
             });
         } catch (err) {
+            console.error('💥 Error displaying rooms:', err);
             availableRoomsDiv.innerHTML = '<h3>Available Streams</h3><div style="color:red">Failed to load streams</div>';
+        }
+    }
+
+    async getAvailableRooms() {
+        console.log('🏠 Attempting to fetch available rooms from server...');
+        console.log('📍 Rooms endpoint URL:', `${CONFIG.tokenServerUrl}/rooms`);
+        
+        try {
+            const response = await fetch(`${CONFIG.tokenServerUrl}/rooms`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+            
+            console.log('📡 Rooms response status:', response.status);
+            console.log('📡 Rooms response headers:', Object.fromEntries(response.headers.entries()));
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('❌ Rooms server error response:', errorText);
+                throw new Error(`Rooms server error: ${response.status} - ${errorText}`);
+            }
+            
+            const rooms = await response.json();
+            console.log('✅ Rooms retrieved successfully:', {
+                roomCount: rooms.length,
+                rooms: rooms.map(room => ({ name: room.name, viewerCount: room.viewerCount }))
+            });
+            
+            return rooms;
+        } catch (error) {
+            console.error('💥 Error during rooms retrieval:', error);
+            throw error;
         }
     }
 
