@@ -1,6 +1,7 @@
 {
   "dependencies": {
     "livekit-client": "^2.14.0",
-    "livekit-server-sdk": "^2.13.1"
+    "livekit-server-sdk": "^2.13.1",
+    "wscat": "^6.1.0"
   }
 }

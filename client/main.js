@@ -1,4 +1,5 @@
 import { Room, RoomEvent, Track, setLogLevel } from 'livekit-client';
+import { CONFIG } from './config.js';
 
 // Enable debug logging in development
 if (import.meta.env.DEV) {
@@ -14,6 +15,11 @@ class LiveKitClient {
         this.localVideoEnabled = true;
         this.localAudioEnabled = true;
         this.role = 'camera'; // default
+        // Pagination state
+        this.currentPage = 0;
+        this.camerasPerPage = 4;
+        this.cameraSids = []; // ordered list of camera participant SIDs (including local)
+        this.expandedVideoSid = null;
         
         this.initializeElements();
         this.setupEventListeners();
@@ -49,6 +55,10 @@ class LiveKitClient {
         this.errorModal = document.getElementById('errorModal');
         this.errorMessage = document.getElementById('errorMessage');
         this.closeErrorBtn = document.getElementById('closeError');
+        this.videoPagination = document.getElementById('videoPagination');
+        this.prevPageBtn = document.getElementById('prevPageBtn');
+        this.nextPageBtn = document.getElementById('nextPageBtn');
+        this.pageIndicator = document.getElementById('pageIndicator');
     }
 
     setupEventListeners() {
@@ -71,6 +81,10 @@ class LiveKitClient {
         this.participantNameInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') this.joinRoom();
         });
+        if (this.prevPageBtn && this.nextPageBtn) {
+            this.prevPageBtn.addEventListener('click', () => this.changeCameraPage(-1));
+            this.nextPageBtn.addEventListener('click', () => this.changeCameraPage(1));
+        }
     }
 
     setupRoomEventListeners() {
@@ -143,18 +157,30 @@ class LiveKitClient {
         try {
             // Get token from token server
             const token = await this.getToken(roomName, participantName, this.role);
+            
+            console.log('🚀 Attempting to connect to LiveKit room...');
+            console.log('📍 LiveKit server URL:', CONFIG.livekitUrl);
+            console.log('🔑 Token received, length:', token.length);
+            
             // Connect to LiveKit room
-            await this.room.connect('ws://localhost:7880', token, {
+            await this.room.connect(CONFIG.livekitUrl, token, {
                 autoSubscribe: true,
             });
+            
+            console.log('✅ Successfully connected to LiveKit room');
+            
             // Only publish local media if role is camera
             if (this.role === 'camera') {
+                console.log('📹 Role is camera, publishing local media...');
                 await this.publishLocalMedia();
+            } else {
+                console.log('👁️ Role is viewer, not publishing media');
             }
+            
             // Show conference interface
             this.showConference();
         } catch (error) {
-            console.error('Failed to join room:', error);
+            console.error('💥 Failed to join room:', error);
             this.showError(`Failed to join room: ${error.message}`);
         } finally {
             this.showLoading(false);
@@ -164,22 +190,48 @@ class LiveKitClient {
     }
 
     async getToken(roomName, participantName, role) {
-        const response = await fetch('http://localhost:3001/token', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                roomName: roomName,
-                participantName: participantName,
-                role: role
-            })
+        console.log('🔑 Attempting to retrieve token from server...');
+        console.log('📍 Token server URL:', `${CONFIG.tokenServerUrl}/token`);
+        console.log('📝 Request payload:', {
+            roomName: roomName,
+            participantName: participantName,
+            role: role
         });
-        if (!response.ok) {
-            throw new Error(`Token server error: ${response.status}`);
+        
+        try {
+            const response = await fetch(`${CONFIG.tokenServerUrl}/token`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    roomName: roomName,
+                    participantName: participantName,
+                    role: role
+                })
+            });
+            
+            console.log('📡 Response status:', response.status);
+            console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('❌ Token server error response:', errorText);
+                throw new Error(`Token server error: ${response.status} - ${errorText}`);
+            }
+            
+            const data = await response.json();
+            console.log('✅ Token retrieved successfully:', {
+                hasToken: !!data.token,
+                tokenLength: data.token ? data.token.length : 0,
+                tokenPreview: data.token ? `${data.token.substring(0, 20)}...` : 'No token'
+            });
+            
+            return data.token;
+        } catch (error) {
+            console.error('💥 Error during token retrieval:', error);
+            throw error;
         }
-        const data = await response.json();
-        return data.token;
     }
 
     async publishLocalMedia() {
@@ -214,6 +266,40 @@ class LiveKitClient {
         }
     }
 
+    // Pagination logic
+    changeCameraPage(delta) {
+        const maxPage = Math.max(0, Math.ceil(this.cameraSids.length / this.camerasPerPage) - 1);
+        this.currentPage = Math.max(0, Math.min(this.currentPage + delta, maxPage));
+        this.renderCameraPage();
+    }
+
+    renderCameraPage() {
+        // Hide all video containers
+        this.cameraSids.forEach(sid => {
+            const videoEl = document.getElementById(sid === 'local' ? 'local-video' : `video-${sid}`);
+            if (videoEl) videoEl.style.display = 'none';
+        });
+        // Show only those for this page
+        const start = this.currentPage * this.camerasPerPage;
+        const end = start + this.camerasPerPage;
+        const sidsToShow = this.cameraSids.slice(start, end);
+        sidsToShow.forEach(sid => {
+            const videoEl = document.getElementById(sid === 'local' ? 'local-video' : `video-${sid}`);
+            if (videoEl) videoEl.style.display = 'block';
+        });
+        // Update pagination controls
+        const maxPage = Math.max(0, Math.ceil(this.cameraSids.length / this.camerasPerPage) - 1);
+        if (this.videoPagination) {
+            this.videoPagination.style.display = this.cameraSids.length > this.camerasPerPage ? '' : 'none';
+            if (this.pageIndicator) {
+                this.pageIndicator.textContent = `Page ${this.currentPage + 1} of ${maxPage + 1}`;
+            }
+            if (this.prevPageBtn) this.prevPageBtn.disabled = this.currentPage === 0;
+            if (this.nextPageBtn) this.nextPageBtn.disabled = this.currentPage === maxPage;
+        }
+    }
+
+    // --- Video logic with pagination ---
     createLocalVideoElement(stream) {
         const videoContainer = document.createElement('div');
         videoContainer.className = 'video-container local';
@@ -234,6 +320,13 @@ class LiveKitClient {
         
         // Add to beginning of video grid
         this.videoGrid.insertBefore(videoContainer, this.videoGrid.firstChild);
+        // Add to cameraSids if not present
+        if (!this.cameraSids.includes('local')) {
+            this.cameraSids.unshift('local');
+        }
+        // Add expand-on-click
+        videoContainer.addEventListener('click', (e) => this.expandVideo('local', e));
+        this.renderCameraPage();
     }
 
     handleTrackSubscribed(track, participant) {
@@ -271,6 +364,13 @@ class LiveKitClient {
         track.attach(video);
 
         this.videoGrid.appendChild(videoContainer);
+        // Add to cameraSids if not present
+        if (!this.cameraSids.includes(participant.sid)) {
+            this.cameraSids.push(participant.sid);
+        }
+        // Add expand-on-click
+        videoContainer.addEventListener('click', (e) => this.expandVideo(participant.sid, e));
+        this.renderCameraPage();
     }
 
     removeParticipantVideo(participant) {
@@ -278,6 +378,15 @@ class LiveKitClient {
         if (existingVideo) {
             existingVideo.remove();
         }
+        // Remove from cameraSids
+        const idx = this.cameraSids.indexOf(participant.sid);
+        if (idx !== -1) {
+            this.cameraSids.splice(idx, 1);
+            // If current page is now out of range, go back a page
+            const maxPage = Math.max(0, Math.ceil(this.cameraSids.length / this.camerasPerPage) - 1);
+            if (this.currentPage > maxPage) this.currentPage = maxPage;
+        }
+        this.renderCameraPage();
     }
 
     updateParticipantMuteStatus(participant, trackKind, isMuted) {
@@ -360,7 +469,10 @@ class LiveKitClient {
         this.joinForm.style.display = 'flex';
         this.conference.style.display = 'none';
         this.videoGrid.innerHTML = '';
-        // Removed: this.participantsList.innerHTML = '';
+        this.cameraSids = [];
+        this.currentPage = 0;
+        this.expandedVideoSid = null; // Clear expanded video on leaving
+        if (this.videoPagination) this.videoPagination.style.display = 'none';
         // Clear stream name reference
         const streamNameDiv = document.getElementById('currentStreamName');
         if (streamNameDiv) streamNameDiv.textContent = '';
@@ -375,6 +487,9 @@ class LiveKitClient {
             const streamName = this.roomNameInput ? this.roomNameInput.value.trim() : '';
             streamNameDiv.textContent = streamName ? `Stream: ${streamName}` : '';
         }
+        // Reset pagination
+        this.currentPage = 0;
+        this.renderCameraPage();
     }
 
     showLoading(show) {
@@ -394,10 +509,24 @@ class LiveKitClient {
     async fetchAndDisplayRooms() {
         const availableRoomsDiv = document.getElementById('availableRooms');
         availableRoomsDiv.innerHTML = '<h3>Available Streams</h3><div>Loading...</div>';
+        
+        console.log('🏠 Attempting to fetch available rooms...');
+        console.log('📍 Rooms endpoint URL:', `${CONFIG.tokenServerUrl}/rooms`);
+        
         try {
-            const response = await fetch('http://localhost:3001/rooms');
-            if (!response.ok) throw new Error('Failed to fetch streams');
+            const response = await fetch(`${CONFIG.tokenServerUrl}/rooms`);
+            console.log('📡 Rooms response status:', response.status);
+            console.log('📡 Rooms response headers:', Object.fromEntries(response.headers.entries()));
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('❌ Failed to fetch streams:', errorText);
+                throw new Error('Failed to fetch streams');
+            }
+            
             const rooms = await response.json();
+            console.log('✅ Rooms fetched successfully:', rooms);
+            
             if (!rooms.length) {
                 availableRoomsDiv.innerHTML = '<h3>Available Streams</h3><div>No streams available</div>';
                 return;
@@ -427,6 +556,50 @@ class LiveKitClient {
         } catch (err) {
             availableRoomsDiv.innerHTML = '<h3>Available Streams</h3><div style="color:red">Failed to load streams</div>';
         }
+    }
+
+    expandVideo(sid, e) {
+        // Prevent click on close button from re-expanding
+        if (e && e.target.classList.contains('expanded-close-btn')) return;
+        // If already expanded, do nothing
+        if (this.expandedVideoSid === sid) return;
+        this.collapseExpandedVideo();
+        this.expandedVideoSid = sid;
+        // Add overlay
+        const overlay = document.createElement('div');
+        overlay.className = 'expanded-video-overlay';
+        overlay.id = 'expandedVideoOverlay';
+        overlay.addEventListener('click', () => this.collapseExpandedVideo());
+        document.body.appendChild(overlay);
+        // Expand video
+        const videoEl = document.getElementById(sid === 'local' ? 'local-video' : `video-${sid}`);
+        if (videoEl) {
+            videoEl.classList.add('expanded');
+            // Add close button
+            const closeBtn = document.createElement('button');
+            closeBtn.className = 'expanded-close-btn';
+            closeBtn.innerHTML = '&times;';
+            closeBtn.addEventListener('click', (evt) => {
+                evt.stopPropagation();
+                this.collapseExpandedVideo();
+            });
+            videoEl.appendChild(closeBtn);
+        }
+    }
+
+    collapseExpandedVideo() {
+        if (!this.expandedVideoSid) return;
+        // Remove overlay
+        const overlay = document.getElementById('expandedVideoOverlay');
+        if (overlay) overlay.remove();
+        // Remove expanded class and close button
+        const videoEl = document.getElementById(this.expandedVideoSid === 'local' ? 'local-video' : `video-${this.expandedVideoSid}`);
+        if (videoEl) {
+            videoEl.classList.remove('expanded');
+            const closeBtn = videoEl.querySelector('.expanded-close-btn');
+            if (closeBtn) closeBtn.remove();
+        }
+        this.expandedVideoSid = null;
     }
 }
 
